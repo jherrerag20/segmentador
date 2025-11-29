@@ -4,7 +4,9 @@ datasource db {
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Esto soluciona el error de "Query Engine" en Vercel
+  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
 }
 
 /**
@@ -34,15 +36,15 @@ enum Rasgo {
  */
 
 model Usuario {
-  id             String     @id @default(uuid())
-  email          String     @unique
-  password_hash  String // <- quitar el ? para hacerlo obligatorio
+  id             String   @id @default(uuid())
+  email          String   @unique
+  password_hash  String
   rol            RolUsuario
-  fecha_registro DateTime   @default(now()) @db.Timestamptz
+  fecha_registro DateTime @default(now()) @db.Timestamptz
 
   // Relaciones
   perfilAlumno  PerfilAlumno?
-  perfilDocente PerfilDocente? // <- NUEVA relación
+  perfilDocente PerfilDocente?
   grupoDocente  GrupoDocente[]
   inscripciones Inscripcion[]
   respuestas    Respuesta[]
@@ -52,8 +54,8 @@ model Usuario {
 }
 
 model PerfilDocente {
-  usuario_id      String  @id
-  empleado_numero String  @unique
+  usuario_id      String @id
+  empleado_numero String @unique
   nombre          String
   apellido        String
   usuario         Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
@@ -64,8 +66,8 @@ model PerfilDocente {
 model PerfilAlumno {
   usuario_id String @id
   boleta     String @unique
-  nombre     String // ← obligatorio
-  apellido   String // ← obligatorio
+  nombre     String
+  apellido   String
 
   usuario Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
 
@@ -73,7 +75,7 @@ model PerfilAlumno {
 }
 
 model Grupo {
-  id         Int            @id @default(autoincrement())
+  id         Int     @id @default(autoincrement())
   nombre     String
   generacion String?
   docentes   GrupoDocente[]
@@ -110,7 +112,7 @@ model Inscripcion {
 
 model Cuestionario {
   id             Int      @id @default(autoincrement())
-  version        String   @unique // ← añade @unique
+  version        String   @unique
   activo         Boolean  @default(true)
   fecha_creacion DateTime @default(now()) @db.Timestamptz
 
@@ -130,7 +132,7 @@ model Respuesta {
   alumno       Usuario      @relation(fields: [alumno_id], references: [id], onDelete: Cascade)
   perfiles     Perfil[]
 
-  @@unique([cuestionario_id, alumno_id]) // una entrega por versión
+  @@unique([cuestionario_id, alumno_id])
   @@map("respuestas")
 }
 
