@@ -1,0 +1,188 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+/**
+ * ===== Enums =====
+ */
+enum RolUsuario {
+  student
+  teacher
+}
+
+enum NivelRasgo {
+  low
+  medium
+  high
+}
+
+enum Rasgo {
+  extraversion
+  agreeableness
+  conscientiousness
+  emotional_stability
+  openness
+}
+
+/**
+ * ===== Modelos (tablas en español) =====
+ */
+
+model Usuario {
+  id             String     @id @default(uuid())
+  email          String     @unique
+  password_hash  String // <- quitar el ? para hacerlo obligatorio
+  rol            RolUsuario
+  fecha_registro DateTime   @default(now()) @db.Timestamptz
+
+  // Relaciones
+  perfilAlumno  PerfilAlumno?
+  perfilDocente PerfilDocente? // <- NUEVA relación
+  grupoDocente  GrupoDocente[]
+  inscripciones Inscripcion[]
+  respuestas    Respuesta[]
+  bitacora      Bitacora[]
+
+  @@map("usuarios")
+}
+
+model PerfilDocente {
+  usuario_id      String  @id
+  empleado_numero String  @unique
+  nombre          String
+  apellido        String
+  usuario         Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@map("perfil_docente")
+}
+
+model PerfilAlumno {
+  usuario_id String @id
+  boleta     String @unique
+  nombre     String // ← obligatorio
+  apellido   String // ← obligatorio
+
+  usuario Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@map("perfil_alumno")
+}
+
+model Grupo {
+  id         Int            @id @default(autoincrement())
+  nombre     String
+  generacion String?
+  docentes   GrupoDocente[]
+  alumnos    Inscripcion[]
+  perfiles   Perfil[]
+
+  @@unique([nombre, generacion])
+  @@map("grupos")
+}
+
+model GrupoDocente {
+  id         Int    @id @default(autoincrement())
+  docente_id String
+  grupo_id   Int
+
+  docente Usuario @relation(fields: [docente_id], references: [id], onDelete: Cascade)
+  grupo   Grupo   @relation(fields: [grupo_id], references: [id], onDelete: Cascade)
+
+  @@unique([docente_id, grupo_id])
+  @@map("grupo_docente")
+}
+
+model Inscripcion {
+  id        Int    @id @default(autoincrement())
+  grupo_id  Int
+  alumno_id String
+
+  grupo  Grupo   @relation(fields: [grupo_id], references: [id], onDelete: Cascade)
+  alumno Usuario @relation(fields: [alumno_id], references: [id], onDelete: Cascade)
+
+  @@unique([grupo_id, alumno_id])
+  @@map("inscripciones")
+}
+
+model Cuestionario {
+  id             Int      @id @default(autoincrement())
+  version        String   @unique // ← añade @unique
+  activo         Boolean  @default(true)
+  fecha_creacion DateTime @default(now()) @db.Timestamptz
+
+  respuestas Respuesta[]
+
+  @@map("cuestionarios")
+}
+
+model Respuesta {
+  id               Int      @id @default(autoincrement())
+  cuestionario_id  Int
+  alumno_id        String
+  respuestas_raw   Json
+  fecha_evaluacion DateTime @default(now()) @db.Timestamptz
+
+  cuestionario Cuestionario @relation(fields: [cuestionario_id], references: [id], onDelete: Restrict)
+  alumno       Usuario      @relation(fields: [alumno_id], references: [id], onDelete: Cascade)
+  perfiles     Perfil[]
+
+  @@unique([cuestionario_id, alumno_id]) // una entrega por versión
+  @@map("respuestas")
+}
+
+model Perfil {
+  id                        Int         @id @default(autoincrement())
+  respuesta_id              Int
+  grupo_id                  Int
+  extraversion_score        Float?
+  agreeableness_score       Float?
+  conscientiousness_score   Float?
+  emotional_stability_score Float?
+  openness_score            Float?
+  nivel_extraversion        NivelRasgo?
+  nivel_agreeableness       NivelRasgo?
+  nivel_conscientiousness   NivelRasgo?
+  nivel_emotional_stability NivelRasgo?
+  nivel_openness            NivelRasgo?
+  model_version             String?
+  created_at                DateTime    @default(now()) @db.Timestamptz
+
+  respuesta       Respuesta       @relation(fields: [respuesta_id], references: [id], onDelete: Cascade)
+  grupo           Grupo           @relation(fields: [grupo_id], references: [id], onDelete: Restrict)
+  recomendaciones Recomendacion[]
+
+  @@index([grupo_id, created_at(sort: Desc)])
+  @@index([respuesta_id])
+  @@map("perfiles")
+}
+
+model Recomendacion {
+  id               Int      @id @default(autoincrement())
+  perfil_id        Int
+  rasgo            Rasgo
+  estrategia       String?
+  habilidad_blanda String?
+  fuente           String?
+  created_at       DateTime @default(now()) @db.Timestamptz
+
+  perfil Perfil @relation(fields: [perfil_id], references: [id], onDelete: Cascade)
+
+  @@index([perfil_id])
+  @@map("recomendaciones")
+}
+
+model Bitacora {
+  id         Int      @id @default(autoincrement())
+  usuario_id String?
+  accion     String
+  meta       Json?
+  fecha      DateTime @default(now()) @db.Timestamptz
+
+  usuario Usuario? @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+
+  @@map("bitacora")
+}
