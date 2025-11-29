@@ -6,11 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@prisma/client": "^6.18.0",
-    "@types/bcryptjs": "^2.4.6",
+    "@prisma/client": "6.19.0",
+    "@tailwindcss/postcss": "^4",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "jose": "^6.1.0",
@@ -21,15 +22,14 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
+    "prisma": "6.19.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "babel-plugin-react-compiler": "1.0.0",
+    "tailwindcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "16.0.0",
-    "prisma": "^6.18.0",
-    "tailwindcss": "^4",
+    "babel-plugin-react-compiler": "1.0.0",
     "typescript": "^5"
   }
 }
