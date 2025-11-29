@@ -8,7 +8,7 @@ generator client {
   // Mantenemos los targets que ya pusimos
   binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
   // ESTA es la línea mágica que suele arreglar el error en Vercel
-  engineType    = "binary"
+  engineType    = "client"
 }
 
 /**
