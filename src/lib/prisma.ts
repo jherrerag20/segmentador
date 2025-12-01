@@ -1,26 +1,26 @@
 // src/lib/prisma.ts
 import { PrismaClient } from "@prisma/client";
-import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
-
-const globalForPrisma = global as unknown as { prisma?: PrismaClient };
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
-  throw new Error("DATABASE_URL is not set");
+  throw new Error("DATABASE_URL no está definida");
 }
 
-const pool = new Pool({ connectionString });
+const adapter = new PrismaPg({
+  connectionString,
+});
 
-export const prisma: PrismaClient =
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+};
+
+export const prisma =
   globalForPrisma.prisma ??
-  // 👇 Cast a any porque las types de esta versión de Prisma
-  // todavía no exponen bien la propiedad `adapter`,
-  // pero en runtime funciona sin problema.
   new PrismaClient({
-    adapter: new PrismaPg(pool),
+    adapter,
     log: ["error", "warn"],
-  } as any);
+  });
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
