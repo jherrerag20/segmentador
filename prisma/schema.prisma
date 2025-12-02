@@ -8,9 +8,6 @@ generator client {
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
-/**
- * ===== Enums =====
- */
 enum RolUsuario {
   student
   teacher
@@ -29,10 +26,6 @@ enum Rasgo {
   emotional_stability
   openness
 }
-
-/**
- * ===== Modelos (tablas en español) =====
- */
 
 model Usuario {
   id             String   @id @default(uuid())
