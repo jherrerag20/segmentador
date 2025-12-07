@@ -16,7 +16,8 @@ type MeResponse = {
 
 type GrupoDocenteDTO = {
   id: number;
-  nombre: string;
+  nombre: string;              // nombre de la materia
+  grupo: string | null;        // clave de grupo (7BM1, 3CM1, etc.)
   generacion: string | null;
   alumnosCount: number;
   perfilesCount: number;
@@ -37,7 +38,8 @@ export default function DocenteDashboard() {
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
 
-  const [createNombre, setCreateNombre] = useState("");
+  const [createNombre, setCreateNombre] = useState("");      // nombre materia
+  const [createGrupo, setCreateGrupo] = useState("");        // clave grupo
   const [createGeneracion, setCreateGeneracion] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -107,19 +109,14 @@ export default function DocenteDashboard() {
     void loadGroups();
   }, [me]);
 
-  // Nombre del docente: "Nombre Apellido" si viene en la respuesta, si no, email, si no, "docente"
   const nombreUsuario =
     me?.user?.nombre || me?.user?.apellido
       ? `${me?.user?.nombre ?? ""} ${me?.user?.apellido ?? ""}`.trim()
       : me?.user?.email || "docente";
 
-  // ---- Handler: logout ----
   async function handleLogout() {
     try {
-      const res = await fetch("/api/auth/logout", {
-        method: "POST",
-      });
-
+      const res = await fetch("/api/auth/logout", { method: "POST" });
       if (res.ok) {
         router.push("/auth/login");
       } else {
@@ -130,13 +127,21 @@ export default function DocenteDashboard() {
     }
   }
 
-  // ---- Handlers: crear grupo ----
+  // ---- Handlers: crear grupo/materia ----
   async function handleCreateGroup(e: React.FormEvent) {
     e.preventDefault();
     setCreateError(null);
 
     if (!createNombre.trim()) {
-      setCreateError("El nombre del grupo es obligatorio.");
+      setCreateError("El nombre de la materia es obligatorio.");
+      return;
+    }
+    if (!createGrupo.trim()) {
+      setCreateError("El grupo es obligatorio (por ejemplo, 7BM1).");
+      return;
+    }
+    if (!createGeneracion.trim()) {
+      setCreateError("La generación es obligatoria (por ejemplo, 2025-2).");
       return;
     }
 
@@ -148,26 +153,27 @@ export default function DocenteDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nombre: createNombre.trim(),
-          generacion: createGeneracion.trim() || null,
+          grupo: createGrupo.trim(),
+          generacion: createGeneracion.trim(),
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
-        setCreateError(data.error || "No se pudo crear el grupo.");
+        setCreateError(data.error || "No se pudo crear la materia.");
         return;
       }
 
       const newGroup = data.group as GrupoDocenteDTO;
-
       setGroups((prev) => [...prev, newGroup]);
 
       setCreateNombre("");
+      setCreateGrupo("");
       setCreateGeneracion("");
       setShowCreate(false);
     } catch {
-      setCreateError("Error al crear el grupo. Intenta de nuevo.");
+      setCreateError("Error al crear la materia. Intenta de nuevo.");
     } finally {
       setCreateLoading(false);
     }
@@ -305,7 +311,7 @@ export default function DocenteDashboard() {
                   }}
                   className="rounded-md border border-[#006699] bg-white px-4 py-1.5 text-sm font-semibold text-[#006699] hover:bg-[#E6F2F7] transition"
                 >
-                  Crear nuevo grupo
+                  Crear nueva materia
                 </button>
                 <button
                   type="button"
@@ -315,25 +321,38 @@ export default function DocenteDashboard() {
                   }}
                   className="rounded-md border border-neutral-300 bg-white px-4 py-1.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition"
                 >
-                  Unirme a un grupo
+                  Unirme a materia
                 </button>
               </div>
             </div>
 
-            {/* Formulario: crear grupo */}
+            {/* Formulario: crear grupo/materia */}
             {showCreate && (
               <form
                 onSubmit={handleCreateGroup}
-                className="rounded-xl border border-neutral-200 bg-[#F8FBFD] px-5 py-4 grid gap-4 sm:grid-cols-[1.2fr_1fr_auto]"
+                className="rounded-xl border border-neutral-200 bg-[#F8FBFD] px-5 py-4 grid gap-4 sm:grid-cols-[1.5fr_0.8fr_0.9fr_auto]"
               >
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-neutral-700">
-                    Nombre del grupo
+                    Nombre de la materia
                   </label>
                   <input
                     type="text"
                     value={createNombre}
                     onChange={(e) => setCreateNombre(e.target.value)}
+                    className="rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-600 focus:outline-none focus:ring-2 focus:ring-[#006699]/40"
+                    placeholder="Ej. Programación Orientada a Objetos"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-neutral-700">
+                    Grupo
+                  </label>
+                  <input
+                    type="text"
+                    value={createGrupo}
+                    onChange={(e) => setCreateGrupo(e.target.value)}
                     className="rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-600 focus:outline-none focus:ring-2 focus:ring-[#006699]/40"
                     placeholder="Ej. 7BM1"
                   />
@@ -341,14 +360,14 @@ export default function DocenteDashboard() {
 
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-neutral-700">
-                    Generación (opcional)
+                    Generación
                   </label>
                   <input
                     type="text"
                     value={createGeneracion}
                     onChange={(e) => setCreateGeneracion(e.target.value)}
                     className="rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-600 focus:outline-none focus:ring-2 focus:ring-[#006699]/40"
-                    placeholder="Ej. 2025-1"
+                    placeholder="Ej. 2025-2"
                   />
                 </div>
 
@@ -358,12 +377,12 @@ export default function DocenteDashboard() {
                     disabled={createLoading}
                     className="w-full rounded-md bg-[#006699] text-white px-4 py-2 text-sm font-semibold shadow-sm hover:bg-[#00557a] disabled:opacity-60 transition"
                   >
-                    {createLoading ? "Creando..." : "Crear grupo"}
+                    {createLoading ? "Creando..." : "Crear materia"}
                   </button>
                 </div>
 
                 {createError && (
-                  <p className="sm:col-span-3 text-xs text-red-600 mt-1">
+                  <p className="sm:col-span-4 text-xs text-red-600 mt-1">
                     {createError}
                   </p>
                 )}
@@ -378,7 +397,7 @@ export default function DocenteDashboard() {
               >
                 <div className="flex flex-col gap-1 max-w-md mx-auto">
                   <label className="text-sm font-medium text-neutral-700">
-                    ID del grupo
+                    ID de la materia
                   </label>
 
                   <input
@@ -395,11 +414,10 @@ export default function DocenteDashboard() {
                   />
 
                   <span className="text-[11px] text-neutral-500 mt-1">
-                    Usa el ID numérico del grupo que te compartieron.
+                    Usa el ID numérico de la materia que te compartieron.
                   </span>
                 </div>
 
-                {/* Botón centrado */}
                 <div className="mt-5 flex justify-center">
                   <button
                     type="submit"
@@ -411,7 +429,6 @@ export default function DocenteDashboard() {
                   </button>
                 </div>
 
-                {/* Error */}
                 {joinError && (
                   <p className="mt-3 text-xs text-red-600 text-center">
                     {joinError}
@@ -435,19 +452,24 @@ export default function DocenteDashboard() {
                     key={g.id}
                     className="w-full max-w-md rounded-xl border border-neutral-200 bg-[#F8FBFD] px-6 py-5 flex flex-col items-center text-center shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:shadow-md hover:border-[#006699]/50 transition"
                   >
-                    {/* Nombre */}
+                    {/* Nombre de la materia */}
                     <h3 className="text-lg font-semibold text-[#06485A]">
                       {g.nombre}
                     </h3>
 
-                    {/* Generación */}
+                    {/* Grupo */}
                     <span className="mt-2 inline-flex items-center rounded-full bg-white px-3 py-1 text-[11px] font-medium text-neutral-600 border border-neutral-200">
-                      Gen. {g.generacion || "No especificada"}
+                      Grupo {g.grupo || "no especificado"}
+                    </span>
+
+                    {/* Generación */}
+                    <span className="mt-1 inline-flex items-center rounded-full bg-white px-3 py-1 text-[11px] font-medium text-neutral-600 border border-neutral-200">
+                      Gen. {g.generacion || "no especificada"}
                     </span>
 
                     {/* ID del grupo */}
                     <span className="mt-2 inline-flex items-center rounded-md bg-[#E6F2F7] px-3 py-1 text-xs font-medium text-[#06485A] border border-[#006699]/30">
-                      ID del grupo: <b className="ml-1">{g.id}</b>
+                      ID de la materia: <b className="ml-1">{g.id}</b>
                     </span>
 
                     {/* Stats */}
@@ -472,7 +494,7 @@ export default function DocenteDashboard() {
                       onClick={() => router.push(`/docente/grupo/${g.id}`)}
                       className="mt-6 inline-flex items-center justify-center rounded-md bg-[#006699] text-white px-4 py-2 text-sm font-semibold shadow-sm hover:bg-[#00557a] transition"
                     >
-                      Ver grupo
+                      Ver materia
                     </button>
                   </article>
                 ))}

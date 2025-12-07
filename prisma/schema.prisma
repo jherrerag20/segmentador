@@ -67,12 +67,13 @@ model PerfilAlumno {
 model Grupo {
   id         Int     @id @default(autoincrement())
   nombre     String
+  grupo      String
   generacion String?
   docentes   GrupoDocente[]
   alumnos    Inscripcion[]
   perfiles   Perfil[]
 
-  @@unique([nombre, generacion])
+  @@unique([nombre, grupo, generacion])
   @@map("grupos")
 }
 

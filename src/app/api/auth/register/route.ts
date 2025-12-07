@@ -13,7 +13,7 @@ const RegisterSchema = z.object({
   alumno: z
     .object({
       boleta: z.string().min(1),
-      grupoId: z.number().int().positive(),
+      grupoId: z.number().int().positive(), // ID de la materia/grupo
     })
     .optional(),
   docente: z
@@ -22,11 +22,12 @@ const RegisterSchema = z.object({
       empleadoNumero: z.string().min(1),
       grupo: z
         .object({
-          nombre: z.string().min(1),
-          generacion: z.string().nullable().optional(),
+          nombre: z.string().min(1),                    // Nombre de la materia
+          grupo: z.string().min(1),                     // Clave/grupo (7BM1, 3CM1, etc.)
+          generacion: z.string().nullable().optional(), // Generación
         })
         .optional(),
-      grupoId: z.number().int().positive().optional(),
+      grupoId: z.number().int().positive().optional(), // ID de materia existente
     })
     .optional(),
 });
@@ -52,16 +53,23 @@ export async function POST(req: NextRequest) {
       select: { id: true, rol: true, email: true },
     });
 
+    // ----- FLUJO ALUMNO -----
     if (data.rol === "student") {
       if (!data.alumno) {
-        return NextResponse.json({ error: "Faltan datos de alumno" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Faltan datos de alumno" },
+          { status: 400 }
+        );
       }
       const { boleta, grupoId } = data.alumno;
 
-      // Validar que el grupo exista
+      // Validar que la materia (grupo) exista
       const grupo = await prisma.grupo.findUnique({ where: { id: grupoId } });
       if (!grupo) {
-        return NextResponse.json({ error: "Group ID inválido o inexistente" }, { status: 400 });
+        return NextResponse.json(
+          { error: "ID de materia inválido o inexistente" },
+          { status: 400 }
+        );
       }
 
       // Upsert perfil alumno
@@ -80,7 +88,7 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Inscripción (única)
+      // Inscripción (única por materia)
       await prisma.inscripcion.upsert({
         where: {
           grupo_id_alumno_id: {
@@ -101,9 +109,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Docente
+    // ----- FLUJO DOCENTE -----
     if (!data.docente) {
-      return NextResponse.json({ error: "Faltan datos de docente" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Faltan datos de docente" },
+        { status: 400 }
+      );
     }
     const { opcion, empleadoNumero } = data.docente;
 
@@ -126,35 +137,67 @@ export async function POST(req: NextRequest) {
     let grupoId: number | null = null;
 
     if (opcion === "crear") {
+      // Validar que venga la info de la materia
+      if (!data.docente.grupo) {
+        return NextResponse.json(
+          { error: "Faltan datos de la materia a crear" },
+          { status: 400 }
+        );
+      }
+
+      const { nombre, grupo, generacion } = data.docente.grupo;
+
+      // Crear materia (Grupo) con nombre, grupo, generación
       const grp = await prisma.grupo.create({
         data: {
-          nombre: data.docente.grupo?.nombre || "Grupo",
-          generacion: data.docente.grupo?.generacion ?? null,
+          nombre,                      // Nombre de la materia
+          grupo,                       // Clave/grupo (7BM1, etc.)
+          generacion: generacion ?? null,
         },
         select: { id: true },
       });
 
+      // Relación docente-materia
       await prisma.grupoDocente.upsert({
-        where: { docente_id_grupo_id: { docente_id: usuario.id, grupo_id: grp.id } },
+        where: {
+          docente_id_grupo_id: {
+            docente_id: usuario.id,
+            grupo_id: grp.id,
+          },
+        },
         update: {},
         create: { docente_id: usuario.id, grupo_id: grp.id },
       });
 
       grupoId = grp.id;
     } else {
+      // Unirse a materia existente
       const gid = data.docente.grupoId;
       if (!gid) {
-        return NextResponse.json({ error: "Debes indicar Group ID para unirte" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Debes indicar ID de materia para unirte" },
+          { status: 400 }
+        );
       }
       const grp = await prisma.grupo.findUnique({ where: { id: gid } });
       if (!grp) {
-        return NextResponse.json({ error: "Group ID no encontrado" }, { status: 404 });
+        return NextResponse.json(
+          { error: "ID de materia no encontrado" },
+          { status: 404 }
+        );
       }
+
       await prisma.grupoDocente.upsert({
-        where: { docente_id_grupo_id: { docente_id: usuario.id, grupo_id: grp.id } },
+        where: {
+          docente_id_grupo_id: {
+            docente_id: usuario.id,
+            grupo_id: grp.id,
+          },
+        },
         update: {},
         create: { docente_id: usuario.id, grupo_id: grp.id },
       });
+
       grupoId = grp.id;
     }
 

@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
           select: {
             id: true,
             nombre: true,
+            grupo: true,
             generacion: true,
             alumnos: { select: { id: true } },
             perfiles: { select: { id: true } },
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
     const groups = relaciones.map((rel) => ({
       id: rel.grupo.id,
       nombre: rel.grupo.nombre,
+      grupo: rel.grupo.grupo,
       generacion: rel.grupo.generacion,
       alumnosCount: rel.grupo.alumnos.length,
       perfilesCount: rel.grupo.perfiles.length,
@@ -46,7 +48,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Crear nuevo grupo y ligarlo al docente actual
+// Crear nueva materia/grupo y ligarla al docente actual
 export async function POST(req: NextRequest) {
   try {
     const sess = getSessionFromRequest(req);
@@ -59,19 +61,35 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const nombre = (body?.nombre || "").trim();
-    const generacion = (body?.generacion || null) as string | null;
+    const nombre = (body?.nombre ?? "").trim();      // materia
+    const grupo = (body?.grupo ?? "").trim();        // clave grupo
+    const generacion = (body?.generacion ?? "").trim();
 
     if (!nombre) {
       return NextResponse.json(
-        { ok: false, error: "El nombre del grupo es obligatorio." },
+        { ok: false, error: "El nombre de la materia es obligatorio." },
         { status: 400 }
       );
     }
 
-    const grupo = await prisma.grupo.create({
+    if (!grupo) {
+      return NextResponse.json(
+        { ok: false, error: "El grupo es obligatorio (por ejemplo, 7BM1)." },
+        { status: 400 }
+      );
+    }
+
+    if (!generacion) {
+      return NextResponse.json(
+        { ok: false, error: "La generación es obligatoria (por ejemplo, 2025-2)." },
+        { status: 400 }
+      );
+    }
+
+    const grupoDb = await prisma.grupo.create({
       data: {
         nombre,
+        grupo,
         generacion,
       },
     });
@@ -79,14 +97,15 @@ export async function POST(req: NextRequest) {
     await prisma.grupoDocente.create({
       data: {
         docente_id: sess.uid,
-        grupo_id: grupo.id,
+        grupo_id: grupoDb.id,
       },
     });
 
     const groupDto = {
-      id: grupo.id,
-      nombre: grupo.nombre,
-      generacion: grupo.generacion,
+      id: grupoDb.id,
+      nombre: grupoDb.nombre,
+      grupo: grupoDb.grupo,
+      generacion: grupoDb.generacion,
       alumnosCount: 0,
       perfilesCount: 0,
     };

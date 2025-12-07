@@ -26,7 +26,8 @@ type GroupDetailResponse = {
   error?: string;
   group?: {
     id: number;
-    nombre: string;
+    nombre: string;           // nombre de la materia
+    grupo: string | null;     // clave 7BM1, etc.
     generacion: string | null;
   };
   alumnos?: AlumnoRow[];
@@ -105,7 +106,6 @@ export default function GrupoDetallePage() {
 
     return alumnos.filter((a) => {
       const level = a[field];
-      // Solo alumnos que tienen perfil y matching en ese rasgo
       return level === selectedLevel;
     });
   }, [alumnos, selectedTrait, selectedLevel]);
@@ -122,7 +122,7 @@ export default function GrupoDetallePage() {
             onClick={() => router.push("/docente")}
             className="inline-flex items-center justify-center rounded-md bg-[#006699] text-white px-4 py-2 text-xs font-semibold shadow-sm hover:bg-[#00557a] transition"
           >
-            ← Volver al panel
+            Volver al panel
           </button>
         </div>
 
@@ -131,21 +131,31 @@ export default function GrupoDetallePage() {
           <div className="mx-auto h-1 w-24 rounded-full bg-[#006699] mb-4" />
 
           <h1 className="text-2xl sm:text-3xl font-bold text-[#06485A]">
-            Resultados del grupo
+            Resultados de la materia
           </h1>
 
           {group && (
-            <div className="mt-3">
+            <div className="mt-3 space-y-2">
               <p className="text-sm text-neutral-700">
-                Grupo{" "}
+                Materia{" "}
                 <span className="font-semibold text-neutral-900">
                   {group.nombre}
                 </span>
               </p>
 
-              <span className="mt-2 inline-flex items-center rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-medium text-neutral-700 border border-neutral-300">
-                Generación {group.generacion || "No especificada"}
-              </span>
+              <div className="flex flex-wrap gap-2 justify-center mt-1">
+                <span className="inline-flex items-center rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-medium text-neutral-700 border border-neutral-300">
+                  Grupo {group.grupo || "no especificado"}
+                </span>
+
+                <span className="inline-flex items-center rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-medium text-neutral-700 border border-neutral-300">
+                  Generación {group.generacion || "no especificada"}
+                </span>
+
+                <span className="inline-flex items-center rounded-full bg-[#E6F2F7] px-3 py-1 text-[11px] font-medium text-[#06485A] border border-[#006699]/40">
+                  ID del grupo: {group.id}
+                </span>
+              </div>
             </div>
           )}
         </header>

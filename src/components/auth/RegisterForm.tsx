@@ -24,7 +24,8 @@ export default function RegisterForm() {
   // Docente
   const [opcionDocente, setOpcionDocente] = useState<"crear" | "unirme">("crear");
   const [empleadoNumero, setEmpleadoNumero] = useState("");
-  const [grupoNombre, setGrupoNombre] = useState("");
+  const [grupoNombre, setGrupoNombre] = useState(""); // Nombre de la materia
+  const [materiaGrupo, setMateriaGrupo] = useState(""); // Clave/grupo (7BM1, 3CM1, etc.)
   const [grupoGeneracion, setGrupoGeneracion] = useState("");
   const [grupoIdDocenteUnir, setGrupoIdDocenteUnir] = useState<number | "">("");
 
@@ -38,7 +39,6 @@ export default function RegisterForm() {
     "w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#006699] focus:border-[#006699] transition";
   const inputNumber =
     "w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#006699] focus:border-[#006699] transition appearance-none";
-  const radioLabel = "inline-flex items-center gap-2 mr-4 text-neutral-900";
   const groupBox = "rounded-xl border border-neutral-200 p-4 bg-white";
 
   async function handleSubmit(e: React.FormEvent) {
@@ -70,12 +70,12 @@ export default function RegisterForm() {
         return;
       }
       if (grupoId === "" || Number.isNaN(Number(grupoId))) {
-        setErr("Debes ingresar un ID del Grupo válido.");
+        setErr("Debes ingresar un ID de la materia válido.");
         return;
       }
       payload.alumno = {
         boleta,
-        grupoId: Number(grupoId),
+        grupoId: Number(grupoId), // sigue siendo grupoId a nivel backend/BD
       };
     } else {
       if (!empleadoNumero) {
@@ -84,20 +84,25 @@ export default function RegisterForm() {
       }
       if (opcionDocente === "crear") {
         if (!grupoNombre) {
-          setErr("Para crear un grupo debes indicar el nombre.");
+          setErr("Para crear una materia debes indicar el nombre de la materia.");
+          return;
+        }
+        if (!materiaGrupo) {
+          setErr("Para crear una materia debes indicar también el grupo (por ejemplo, 7BM1).");
           return;
         }
         payload.docente = {
           opcion: "crear",
           empleadoNumero,
           grupo: {
-            nombre: grupoNombre,
+            nombre: grupoNombre,           // nombre de la materia
+            grupo: materiaGrupo,           // clave/grupo (7BM1, 3CM1, etc.)
             generacion: grupoGeneracion || null,
           },
         };
       } else {
         if (grupoIdDocenteUnir === "" || Number.isNaN(Number(grupoIdDocenteUnir))) {
-          setErr("Debes ingresar un ID del Grupo válido para unirte.");
+          setErr("Debes ingresar un ID de la materia válido para unirte.");
           return;
         }
         payload.docente = {
@@ -119,7 +124,6 @@ export default function RegisterForm() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Error en el registro");
 
-      // Después de un registro exitoso, mandamos al login
       setMsg("Registro exitoso. Ahora puedes iniciar sesión.");
       router.push("/auth/login");
     } catch (e: any) {
@@ -291,7 +295,7 @@ export default function RegisterForm() {
                 </div>
                 <div className="mb-3">
                   <label className={label}>
-                    ID del Grupo (proporcionado por tu docente)
+                    ID de la materia (proporcionado por tu docente)
                   </label>
                   <input
                     className={inputNumber}
@@ -325,7 +329,6 @@ export default function RegisterForm() {
                 <div className="mb-3">
                   <label className={label}>Acción</label>
                   <div className="flex flex-wrap gap-3">
-                    {/* BOTÓN 1: Crear grupo (con texto visible) */}
                     <button
                       type="button"
                       onClick={() => setOpcionDocente("crear")}
@@ -336,10 +339,9 @@ export default function RegisterForm() {
                           : "border-neutral-300 bg-white text-neutral-800 hover:border-[#006699]",
                       ].join(" ")}
                     >
-                      Crear grupo nuevo
+                      Crear materia nueva
                     </button>
 
-                    {/* BOTÓN 2: Unirme (con texto visible) */}
                     <button
                       type="button"
                       onClick={() => setOpcionDocente("unirme")}
@@ -350,36 +352,46 @@ export default function RegisterForm() {
                           : "border-neutral-300 bg-white text-neutral-800 hover:border-[#006699]",
                       ].join(" ")}
                     >
-                      Unirme a grupo existente
+                      Unirme a materia existente
                     </button>
                   </div>
                 </div>
 
                 {opcionDocente === "crear" ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className={label}>Nombre de grupo</label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="md:col-span-2">
+                      <label className={label}>Nombre de la materia</label>
                       <input
                         className={input}
                         required
                         value={grupoNombre}
                         onChange={(e) => setGrupoNombre(e.target.value)}
-                        placeholder="Ej. 3CM1"
+                        placeholder="Ej. Programación Orientada a Objetos"
                       />
                     </div>
                     <div>
-                      <label className={label}>Generación (opcional)</label>
+                      <label className={label}>Grupo</label>
+                      <input
+                        className={input}
+                        required
+                        value={materiaGrupo}
+                        onChange={(e) => setMateriaGrupo(e.target.value)}
+                        placeholder="Ej. 7BM1"
+                      />
+                    </div>
+                    <div className="md:col-span-3">
+                      <label className={label}>Generación</label>
                       <input
                         className={input}
                         value={grupoGeneracion}
                         onChange={(e) => setGrupoGeneracion(e.target.value)}
-                        placeholder="Ej. 2025-1"
+                        placeholder="Ej. 2025-2"
                       />
                     </div>
                   </div>
                 ) : (
                   <div className="mb-3">
-                    <label className={label}>ID del Grupo</label>
+                    <label className={label}>ID de la materia</label>
                     <input
                       className={inputNumber}
                       type="number"
@@ -397,7 +409,7 @@ export default function RegisterForm() {
               </div>
             )}
 
-            {/* Consentimiento (estético y centrado) */}
+            {/* Consentimiento */}
             <div className="w-full flex justify-center">
               <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-[#F5FAFF] px-5 py-4 shadow-sm">
                 <label className="flex items-start gap-3 text-neutral-900 cursor-pointer">

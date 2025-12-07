@@ -6,6 +6,8 @@ const SubmitSchema = z.object({
   alumnoEmail: z.string().email(),
   cuestionarioVersion: z.string().min(1),
   respuestas: z.any(),
+  // Se mantiene 'grupo' para compatibilidad con el JSON de entrada,
+  // pero ya no se usa para crear nada en BD.
   grupo: z
     .object({
       nombre: z.string(),
@@ -26,6 +28,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = SubmitSchema.parse(body);
 
+    // 1) Buscar alumno por email
     const alumno = await prisma.usuario.findUnique({
       where: { email: data.alumnoEmail },
     });
@@ -36,6 +39,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 2) Cuestionario (version -> id)
     let cuestionario = await prisma.cuestionario.findFirst({
       where: { version: data.cuestionarioVersion },
     });
@@ -45,6 +49,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // 3) Guardar / actualizar respuesta cruda
     const respuesta = await prisma.respuesta.upsert({
       where: {
         cuestionario_id_alumno_id: {
@@ -60,41 +65,26 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    let inscripcion = await prisma.inscripcion.findFirst({
+    // 4) Obtener la inscripción del alumno
+    //    Ahora asumimos que el alumno SIEMPRE se inscribe a su primera materia
+    //    desde el flujo de registro / panel, así que aquí sólo tomamos la primera.
+    const inscripcion = await prisma.inscripcion.findFirst({
       where: { alumno_id: alumno.id },
     });
 
-    if (!inscripcion && data.grupo?.nombre) {
-      // Siempre usar un string para 'generacion' para que coincida con el tipo del índice único
-      const generacion = data.grupo.generacion ?? "";
-
-      const grupo = await prisma.grupo.upsert({
-        where: {
-          nombre_generacion: {
-            nombre: data.grupo.nombre,
-            generacion,
-          },
-        },
-        update: {},
-        create: {
-          nombre: data.grupo.nombre,
-          generacion,
-        },
-      });
-
-      inscripcion = await prisma.inscripcion.create({
-        data: { grupo_id: grupo.id, alumno_id: alumno.id },
-      });
-    }
-
+    // Ya no creamos grupos ni inscripciones desde este webhook.
+    // Si no hay inscripción, es un error de flujo (el alumno no se registró bien).
     if (!inscripcion) {
       return NextResponse.json(
-        { error: "El alumno no está inscrito en ningún grupo" },
+        {
+          error:
+            "El alumno no está inscrito en ninguna materia. Asegúrate de que se haya registrado correctamente en al menos una materia antes de contestar el cuestionario.",
+        },
         { status: 400 }
       );
     }
 
-    // predictor
+    // 5) Llamar al predictor de personalidad
     const resp = await fetch(process.env.PREDICT_URL!, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -117,6 +107,7 @@ export async function POST(req: NextRequest) {
       model_version?: string;
     };
 
+    // 6) Crear el perfil asociado a esta respuesta y a la materia principal
     const perfil = await prisma.perfil.create({
       data: {
         respuesta_id: respuesta.id,
@@ -135,6 +126,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // 7) Disparar webhook a n8n (mismo contrato que ya usabas)
     const webhook = process.env.N8N_WEBHOOK_URL;
     if (webhook) {
       await fetch(webhook, {

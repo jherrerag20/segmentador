@@ -47,7 +47,8 @@ export async function GET(
       where: { id: groupIdNum },
       select: {
         id: true,
-        nombre: true,
+        nombre: true,       // nombre de la materia
+        grupo: true,        // clave del grupo (7BM1, etc.)
         generacion: true,
         alumnos: {
           include: {
@@ -114,8 +115,14 @@ export async function GET(
 
       if (p.nivel_extraversion) {
         current.extraversion = p.nivel_extraversion;
-        if (summary.extraversion[p.nivel_extraversion as "low" | "medium" | "high"] !== undefined) {
-          summary.extraversion[p.nivel_extraversion as "low" | "medium" | "high"]++;
+        if (
+          summary.extraversion[
+            p.nivel_extraversion as "low" | "medium" | "high"
+          ] !== undefined
+        ) {
+          summary.extraversion[
+            p.nivel_extraversion as "low" | "medium" | "high"
+          ]++;
         }
       }
 
@@ -174,6 +181,7 @@ export async function GET(
       group: {
         id: group.id,
         nombre: group.nombre,
+        grupo: group.grupo,
         generacion: group.generacion,
       },
       alumnos,

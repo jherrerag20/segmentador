@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = SubmitSchema.parse(body);
 
-    // Buscar alumno
+    // 1) Buscar alumno
     const alumno = await prisma.usuario.findUnique({
       where: { email: data.alumnoEmail },
     });
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Buscar o crear cuestionario
+    // 2) Buscar o crear cuestionario
     let cuestionario = await prisma.cuestionario.findFirst({
       where: { version: data.cuestionarioVersion },
     });
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Guardar o actualizar respuestas
+    // 3) Guardar o actualizar respuestas
     const respuesta = await prisma.respuesta.upsert({
       where: {
         cuestionario_id_alumno_id: {
@@ -63,42 +63,22 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Verificar o crear inscripción
-    let inscripcion = await prisma.inscripcion.findFirst({
+    // 4) Obtener inscripción existente del alumno
+    const inscripcion = await prisma.inscripcion.findFirst({
       where: { alumno_id: alumno.id },
     });
 
-    if (!inscripcion && data.grupo?.nombre) {
-      // Siempre mandamos un string para 'generacion' para que coincida con el tipo del índice único
-      const generacion = data.grupo.generacion ?? "";
-
-      const grupo = await prisma.grupo.upsert({
-        where: {
-          nombre_generacion: {
-            nombre: data.grupo.nombre,
-            generacion,
-          },
-        },
-        update: {},
-        create: {
-          nombre: data.grupo.nombre,
-          generacion,
-        },
-      });
-
-      inscripcion = await prisma.inscripcion.create({
-        data: { grupo_id: grupo.id, alumno_id: alumno.id },
-      });
-    }
-
     if (!inscripcion) {
       return NextResponse.json(
-        { error: "El alumno no está inscrito en ningún grupo" },
+        {
+          error:
+            "El alumno no está inscrito en ninguna materia. Asegúrate de que primero se registre y se inscriba en al menos una materia antes de contestar el cuestionario.",
+        },
         { status: 400 }
       );
     }
 
-    // Invocar predictor
+    // 5) Invocar predictor
     const resp = await fetch(process.env.PREDICT_URL!, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -121,7 +101,7 @@ export async function POST(req: NextRequest) {
       model_version?: string;
     };
 
-    // Crear perfil
+    // 6) Crear perfil
     const perfil = await prisma.perfil.create({
       data: {
         respuesta_id: respuesta.id,
@@ -140,19 +120,39 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Webhook a n8n (opcional)
+    // 7) Webhook a n8n (manteniendo 'scores' y añadiendo userId/traits/prompt)
     const webhook = process.env.N8N_WEBHOOK_URL;
     if (webhook) {
+      const traits = {
+        extraversion: (nivel(pred.extraversion) ?? "medium") as
+          | "low"
+          | "medium"
+          | "high",
+        agreeableness: (nivel(pred.agreeableness) ?? "medium") as
+          | "low"
+          | "medium"
+          | "high",
+        conscientiousness: (nivel(pred.conscientiousness) ?? "medium") as
+          | "low"
+          | "medium"
+          | "high",
+      };
+
       try {
         await fetch(webhook, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            // LO QUE YA TENÍAS:
             requestId: `perfil_${perfil.id}`,
             alumnoEmail: data.alumnoEmail,
             perfilId: perfil.id,
             grupoId: inscripcion.grupo_id,
             scores: pred,
+            // LO QUE NECESITA EL PROMPT DE n8n:
+            userId: String(alumno.id),
+            traits,
+            prompt: "",
           }),
         });
       } catch (err) {
